@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE, ADMIN_COOKIE_VALUE } from "@/lib/auth";
+import { isAdminRequest } from "@/lib/auth";
 import { ensureStatesTable, getSql } from "@/lib/db";
-import { cookies } from "next/headers";
-
-async function requireAdmin() {
-  const cookieStore = await cookies();
-  const session = cookieStore.get(ADMIN_COOKIE)?.value;
-  if (session !== ADMIN_COOKIE_VALUE) {
-    return false;
-  }
-  return true;
-}
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { stateCode: string } }
 ) {
-  if (!(await requireAdmin())) {
+  if (!isAdminRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

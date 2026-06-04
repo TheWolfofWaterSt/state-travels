@@ -1,12 +1,18 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import StateAdminRow from "@/components/StateAdminRow";
 
 export const dynamic = "force-dynamic";
+import { getAdminSession } from "@/lib/auth";
 import { ensureStatesTable, getSql } from "@/lib/db";
 import { seedStates } from "@/lib/seed";
 import type { StateRecord } from "@/lib/states-data";
 
 export default async function AdminPage() {
+  if (!(await getAdminSession())) {
+    redirect("/login");
+  }
+
   try {
     await seedStates();
     await ensureStatesTable();
