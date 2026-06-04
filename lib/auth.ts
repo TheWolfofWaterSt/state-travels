@@ -1,8 +1,9 @@
-import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
+import { verifyAdminToken } from "@/lib/admin-token";
 
 export const ADMIN_COOKIE = "admin_session";
 export const ADMIN_COOKIE_VALUE = "authenticated";
+export const ADMIN_AUTH_HEADER = "authorization";
 
 export function isAdminAuthenticated(
   cookieValue: string | undefined
@@ -10,11 +11,17 @@ export function isAdminAuthenticated(
   return cookieValue === ADMIN_COOKIE_VALUE;
 }
 
-export function isAdminRequest(request: NextRequest): boolean {
-  return isAdminAuthenticated(request.cookies.get(ADMIN_COOKIE)?.value);
+function getBearerToken(request: NextRequest): string | undefined {
+  const auth = request.headers.get(ADMIN_AUTH_HEADER);
+  if (auth?.startsWith("Bearer ")) {
+    return auth.slice(7).trim();
+  }
+  return request.headers.get("x-admin-session")?.trim() ?? undefined;
 }
 
-export async function getAdminSession(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return isAdminAuthenticated(cookieStore.get(ADMIN_COOKIE)?.value);
+export function isAdminRequest(request: NextRequest): boolean {
+  if (isAdminAuthenticated(request.cookies.get(ADMIN_COOKIE)?.value)) {
+    return true;
+  }
+  return verifyAdminToken(getBearerToken(request));
 }

@@ -6,11 +6,15 @@ import type { StateRecord } from "@/lib/states-data";
 
 type StateAdminRowProps = {
   state: StateRecord;
+  adminToken: string;
 };
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-export default function StateAdminRow({ state: initial }: StateAdminRowProps) {
+export default function StateAdminRow({
+  state: initial,
+  adminToken,
+}: StateAdminRowProps) {
   const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const [status, setStatus] = useState<SaveStatus>("idle");
@@ -37,7 +41,10 @@ export default function StateAdminRow({ state: initial }: StateAdminRowProps) {
     const res = await fetch(`/api/states/${saved.state_code}`, {
       method: "PATCH",
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
       body: JSON.stringify({
         visited: draft.visited,
         places: draft.places,
