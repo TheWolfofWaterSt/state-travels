@@ -1,24 +1,24 @@
 "use client";
 
 import StateAdminRow from "@/components/StateAdminRow";
-import type { StateRecord } from "@/lib/states-data";
+import type { AdminStateDraft } from "@/lib/admin-state";
 
 type AdminClientRowsProps = {
-  states: StateRecord[];
-  adminToken: string;
+  states: AdminStateDraft[];
+  onStateChange: (stateCode: string, state: AdminStateDraft) => void;
 };
 
 export default function AdminClientRows({
   states,
-  adminToken,
+  onStateChange,
 }: AdminClientRowsProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-4">
       {states.map((state) => (
         <StateAdminRow
           key={state.state_code}
           state={state}
-          adminToken={adminToken}
+          onChange={(updated) => onStateChange(state.state_code, updated)}
         />
       ))}
     </div>

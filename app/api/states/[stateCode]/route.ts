@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/auth";
-import { ensureStatesTable, getSql } from "@/lib/db";
+import type { CityRecord } from "@/lib/states-data";
+import { updateState } from "@/lib/states-repository";
+
+function isValidCities(value: unknown): value is CityRecord[] {
+  if (!Array.isArray(value)) return false;
+  return value.every(
+    (city) =>
+      typeof city === "object" &&
+      city !== null &&
+      typeof city.name === "string" &&
+      Array.isArray(city.places) &&
+      city.places.every((p: unknown) => typeof p === "string")
+  );
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -15,41 +28,35 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid state code" }, { status: 400 });
   }
 
-  let body: { visited?: boolean; places?: string };
+  let body: { visited?: boolean; cities?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (
-    typeof body.visited !== "boolean" &&
-    typeof body.places !== "string"
-  ) {
+  const hasVisited = typeof body.visited === "boolean";
+  const hasCities = body.cities !== undefined;
+
+  if (!hasVisited && !hasCities) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
+  if (hasCities && !isValidCities(body.cities)) {
+    return NextResponse.json({ error: "Invalid cities payload" }, { status: 400 });
+  }
+
   try {
-    await ensureStatesTable();
-    const sql = getSql();
+    const updated = await updateState(stateCode, {
+      visited: hasVisited ? body.visited : undefined,
+      cities: hasCities ? (body.cities as CityRecord[]) : undefined,
+    });
 
-    const visited = typeof body.visited === "boolean" ? body.visited : null;
-    const places = typeof body.places === "string" ? body.places : null;
-
-    const rows = await sql`
-      UPDATE states
-      SET
-        visited = COALESCE(${visited}, visited),
-        places = COALESCE(${places}, places)
-      WHERE state_code = ${stateCode}
-      RETURNING state_code, state_name, visited, places
-    `;
-
-    if (rows.length === 0) {
+    if (!updated) {
       return NextResponse.json({ error: "State not found" }, { status: 404 });
     }
 
-    return NextResponse.json(rows[0]);
+    return NextResponse.json(updated);
   } catch (error) {
     console.error("PATCH /api/states:", error);
     return NextResponse.json(

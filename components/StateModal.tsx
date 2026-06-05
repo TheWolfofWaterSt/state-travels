@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import type { CityRecord } from "@/lib/states-data";
 
 type StateModalProps = {
   stateName: string;
-  places: string[];
+  cities: CityRecord[];
   onClose: () => void;
 };
 
 export default function StateModal({
   stateName,
-  places,
+  cities,
   onClose,
 }: StateModalProps) {
   useEffect(() => {
@@ -21,16 +22,18 @@ export default function StateModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const hasCities = cities.length > 0;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="state-modal-title"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+        className="relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -47,14 +50,25 @@ export default function StateModal({
         >
           {stateName}
         </h2>
-        {places.length > 0 ? (
-          <ul className="list-disc space-y-1 pl-5 text-gray-700">
-            {places.map((place) => (
-              <li key={place}>{place}</li>
+        {hasCities ? (
+          <div className="space-y-4">
+            {cities.map((city) => (
+              <div key={city.name}>
+                <h3 className="font-medium text-gray-900">{city.name}</h3>
+                {city.places.length > 0 ? (
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-gray-700">
+                    {city.places.map((place) => (
+                      <li key={place}>{place}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-sm text-gray-500">No places listed.</p>
+                )}
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
-          <p className="text-gray-500">No places recorded yet.</p>
+          <p className="text-gray-500">No cities recorded yet.</p>
         )}
       </div>
     </div>

@@ -9,21 +9,13 @@ type MapSectionProps = {
   svgContent: string;
 };
 
-function parsePlaces(places: string): string[] {
-  if (!places.trim()) return [];
-  return places
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
-
 export default function MapSection({ svgContent }: MapSectionProps) {
   const [states, setStates] = useState<StateRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<StateRecord | null>(null);
 
   useEffect(() => {
-    fetch("/api/states")
+    fetch("/api/states", { cache: "no-store" })
       .then((res) => res.json())
       .then((data: StateRecord[]) => {
         setStates(data);
@@ -50,7 +42,7 @@ export default function MapSection({ svgContent }: MapSectionProps) {
       {modal && (
         <StateModal
           stateName={modal.state_name}
-          places={parsePlaces(modal.places)}
+          cities={modal.cities}
           onClose={() => setModal(null)}
         />
       )}

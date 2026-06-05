@@ -1,17 +1,99 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminClientRows from "@/components/AdminClientRows";
 import LogoutButton from "@/components/LogoutButton";
+import {
+  adminDraftToStateRecord,
+  getDirtyAdminDrafts,
+  stateRecordToAdminDraft,
+  type AdminStateDraft,
+} from "@/lib/admin-state";
 import { getStoredAdminToken } from "@/lib/auth-client";
 import type { StateRecord } from "@/lib/states-data";
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+async function fetchStatesFromApi(): Promise<StateRecord[]> {
+  const res = await fetch("/api/states", { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load states");
+  return res.json() as Promise<StateRecord[]>;
+}
+
+async function patchState(
+  draft: AdminStateDraft,
+  adminToken: string
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const state = adminDraftToStateRecord(draft);
+  const res = await fetch(`/api/states/${state.state_code}`, {
+    method: "PATCH",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`,
+    },
+    body: JSON.stringify({
+      visited: state.visited,
+      cities: state.cities
+        .map((city) => ({
+          name: city.name.trim(),
+          places: city.places,
+        }))
+        .filter((city) => city.name.length > 0),
+    }),
+  });
+
+  if (res.status === 401) {
+    return { ok: false, status: 401, error: "Session expired." };
+  }
+
+  if (!res.ok) {
+    let message = "Could not save.";
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      /* use default */
+    }
+    return { ok: false, status: res.status, error: message };
+  }
+
+  return { ok: true };
+}
 
 export default function AdminClient() {
   const router = useRouter();
   const [adminToken, setAdminToken] = useState<string | null>(null);
-  const [states, setStates] = useState<StateRecord[] | null>(null);
+  const [saved, setSaved] = useState<AdminStateDraft[] | null>(null);
+  const [draft, setDraft] = useState<AdminStateDraft[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dirtyStates = useMemo(() => {
+    if (!draft || !saved) return [];
+    return getDirtyAdminDrafts(draft, saved);
+  }, [draft, saved]);
+
+  const isDirty = dirtyStates.length > 0;
+
+  const clearStatusSoon = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setStatus("idle");
+      setErrorMessage(null);
+    }, 4000);
+  }, []);
+
+  const applyFreshStates = useCallback((records: StateRecord[]) => {
+    const adminDrafts = records.map(stateRecordToAdminDraft);
+    setSaved(adminDrafts);
+    setDraft(adminDrafts);
+  }, []);
 
   useEffect(() => {
     const token = getStoredAdminToken();
@@ -24,20 +106,65 @@ export default function AdminClient() {
     async function load() {
       try {
         await fetch("/api/seed", { method: "POST" });
-        const res = await fetch("/api/states");
-        if (!res.ok) {
-          setLoadError("Could not load states from the database.");
-          return;
-        }
-        const data = (await res.json()) as StateRecord[];
-        setStates(data);
+        const data = await fetchStatesFromApi();
+        applyFreshStates(data);
       } catch {
         setLoadError("Could not load states from the database.");
       }
     }
 
     load();
-  }, [router]);
+  }, [router, applyFreshStates]);
+
+  const handleStateChange = (stateCode: string, state: AdminStateDraft) => {
+    setDraft((current) =>
+      current?.map((s) => (s.state_code === stateCode ? state : s)) ?? null
+    );
+  };
+
+  const handleSaveAll = async () => {
+    if (!adminToken || !draft || !saved || !isDirty) return;
+
+    setStatus("saving");
+    setErrorMessage(null);
+
+    const results = await Promise.all(
+      dirtyStates.map(async (state) => ({
+        stateCode: state.state_code,
+        stateName: state.state_name,
+        result: await patchState(state, adminToken),
+      }))
+    );
+
+    const unauthorized = results.find((r) => !r.result.ok && r.result.status === 401);
+    if (unauthorized && !unauthorized.result.ok) {
+      setStatus("error");
+      setErrorMessage(unauthorized.result.error);
+      clearStatusSoon();
+      return;
+    }
+
+    const failed = results.filter((r) => !r.result.ok);
+
+    if (failed.length > 0) {
+      const names = failed.map((f) => f.stateName).join(", ");
+      setStatus("error");
+      setErrorMessage(`Could not save: ${names}.`);
+      clearStatusSoon();
+      return;
+    }
+
+    try {
+      const fresh = await fetchStatesFromApi();
+      applyFreshStates(fresh);
+      setStatus("saved");
+      clearStatusSoon();
+    } catch {
+      setStatus("error");
+      setErrorMessage("Saved to the database, but could not reload. Refresh the page.");
+      clearStatusSoon();
+    }
+  };
 
   if (!adminToken) {
     return (
@@ -55,7 +182,7 @@ export default function AdminClient() {
     );
   }
 
-  if (!states) {
+  if (!draft || !saved) {
     return (
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <p className="text-gray-600">Loading states…</p>
@@ -64,14 +191,48 @@ export default function AdminClient() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-gray-900">
-          Admin — Edit Visited States
-        </h1>
-        <LogoutButton />
+    <main className="mx-auto max-w-5xl">
+      <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">
+            Admin — States, Cities & Places
+          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSaveAll}
+              disabled={!isDirty || status === "saving"}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+            >
+              {status === "saving"
+                ? "Saving…"
+                : isDirty
+                  ? `Save all (${dirtyStates.length})`
+                  : "Save all"}
+            </button>
+            <LogoutButton />
+          </div>
+        </div>
+        {(status === "saved" || (status === "error" && errorMessage)) && (
+          <p
+            className={`mt-2 text-sm ${status === "saved" ? "text-green-600" : "text-red-600"}`}
+          >
+            {status === "saved" ? "All changes saved." : errorMessage}
+            {status === "error" && errorMessage?.includes("Session") && (
+              <>
+                {" "}
+                <Link href="/login" className="underline">
+                  Log in again
+                </Link>
+              </>
+            )}
+          </p>
+        )}
       </div>
-      <AdminClientRows states={states} adminToken={adminToken} />
+
+      <div className="px-4 py-6 sm:px-6">
+        <AdminClientRows states={draft} onStateChange={handleStateChange} />
+      </div>
     </main>
   );
 }

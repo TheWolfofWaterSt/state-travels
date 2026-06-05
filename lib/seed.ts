@@ -1,8 +1,8 @@
-import { ensureStatesTable, getSql } from "@/lib/db";
+import { ensureSchema, getSql } from "@/lib/db";
 import { US_STATES } from "@/lib/states-data";
 
 export async function seedStates(): Promise<{ inserted: number }> {
-  await ensureStatesTable();
+  await ensureSchema();
   const sql = getSql();
   let inserted = 0;
 

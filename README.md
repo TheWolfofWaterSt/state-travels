@@ -1,6 +1,6 @@
 # States I've Visited
 
-A personal travel map portfolio built with Next.js 14 (App Router), Neon Postgres, and Tailwind CSS. Mark which US states you've visited and list cities or places for each.
+A personal travel map portfolio built with Next.js 14 (App Router), Neon Postgres, and Tailwind CSS. Mark which US states you've visited, add cities per state, and list places you've been in each city.
 
 ## Local development
 
@@ -23,7 +23,11 @@ A personal travel map portfolio built with Next.js 14 (App Router), Neon Postgre
 2. In Vercel project settings, set `NEON_DATABASE_URL`, `ADMIN_PASSWORD`, and `NEXTAUTH_SECRET`.
 3. Deploy with `vercel --prod` or connect the GitHub repo for auto-deploy.
 4. After first deploy, visit the site once (auto-seed) or `POST /api/seed` to populate all 50 states.
-5. Log in at `/login` to edit visited states at `/admin`.
+5. Log in at `/login` to edit visited states, cities, and places at `/admin`.
+
+## Data shape
+
+Each state is stored as `visited` plus nested `cities`, each with a `places` list (e.g. Wisconsin → Eau Claire → Half Moon Lake). Saving a state replaces its full city list (removing a city in admin and clicking **Save all** deletes it—no separate delete API). Legacy comma-separated `places` text is migrated once into city rows, then cleared.
 
 ## Map SVG
 

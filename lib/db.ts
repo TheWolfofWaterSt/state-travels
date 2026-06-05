@@ -20,3 +20,28 @@ export async function ensureStatesTable() {
     )
   `;
 }
+
+export async function ensureCitiesTables() {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS cities (
+      id SERIAL PRIMARY KEY,
+      state_id INTEGER NOT NULL REFERENCES states(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS city_places (
+      id SERIAL PRIMARY KEY,
+      city_id INTEGER NOT NULL REFERENCES cities(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `;
+}
+
+export async function ensureSchema() {
+  await ensureStatesTable();
+  await ensureCitiesTables();
+}

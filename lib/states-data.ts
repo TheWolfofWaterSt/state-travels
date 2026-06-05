@@ -51,9 +51,19 @@ export const US_STATES = [
   { state_code: "WY", state_name: "Wyoming" },
 ] as const;
 
+export type CityRecord = {
+  name: string;
+  places: string[];
+};
+
 export type StateRecord = {
   state_code: string;
   state_name: string;
   visited: boolean;
-  places: string;
+  cities: CityRecord[];
+};
+
+export type StateUpdatePayload = {
+  visited?: boolean;
+  cities?: CityRecord[];
 };

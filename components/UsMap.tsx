@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { StateRecord } from "@/lib/states-data";
+
+const VISITED_FILL = "#3B82F6";
+const VISITED_HOVER_FILL = "#2563EB";
+const UNVISITED_FILL = "#E5E7EB";
+const STROKE = "#9CA3AF";
 
 type UsMapProps = {
   svgContent: string;
@@ -16,6 +21,12 @@ export default function UsMap({
 }: UsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const statesByCode = useRef(new Map<string, StateRecord>());
+  const svgMounted = useRef(false);
+  const onVisitedClickRef = useRef(onVisitedClick);
+
+  useEffect(() => {
+    onVisitedClickRef.current = onVisitedClick;
+  }, [onVisitedClick]);
 
   useEffect(() => {
     const map = new Map<string, StateRecord>();
@@ -36,53 +47,71 @@ export default function UsMap({
       const record = statesByCode.current.get(code);
       const visited = record?.visited ?? false;
 
-      path.classList.remove(
-        "fill-[#3B82F6]",
-        "fill-[#E5E7EB]",
-        "hover:fill-[#2563EB]",
-        "cursor-pointer",
-        "cursor-default",
-        "stroke-[#9CA3AF]",
-        "stroke-[0.75]"
-      );
-      path.classList.add("stroke-[#9CA3AF]", "stroke-[0.75]");
-      if (visited) {
-        path.classList.add("fill-[#3B82F6]", "hover:fill-[#2563EB]", "cursor-pointer");
-      } else {
-        path.classList.add("fill-[#E5E7EB]", "cursor-default");
-      }
+      path.style.fill = visited ? VISITED_FILL : UNVISITED_FILL;
+      path.style.stroke = STROKE;
+      path.style.strokeWidth = "0.75px";
+      path.style.cursor = visited ? "pointer" : "default";
+      path.style.pointerEvents = "auto";
+      path.dataset.visited = visited ? "true" : "false";
     });
   }, []);
-
-  useEffect(() => {
-    applyStyles();
-  }, [states, applyStyles]);
 
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
 
+    if (!svgMounted.current) {
+      root.innerHTML = svgContent;
+      svgMounted.current = true;
+
+      const paths = root.querySelectorAll<SVGPathElement>(
+        "path[data-state-code]"
+      );
+      paths.forEach((path) => {
+        path.addEventListener("mouseenter", () => {
+          if (path.dataset.visited === "true") {
+            path.style.fill = VISITED_HOVER_FILL;
+          }
+        });
+        path.addEventListener("mouseleave", () => {
+          if (path.dataset.visited === "true") {
+            path.style.fill = VISITED_FILL;
+          }
+        });
+      });
+    }
+
     const handleClick = (e: MouseEvent) => {
       const target = e.target as Element;
-      const path = target.closest("path[data-state-code]");
-      if (!path) return;
-      const code = path.getAttribute("data-state-code");
+      const hit = target.closest("path[data-state-code]");
+      if (!hit) return;
+      const code = hit.getAttribute("data-state-code");
       if (!code) return;
       const record = statesByCode.current.get(code);
       if (record?.visited) {
-        onVisitedClick(record);
+        onVisitedClickRef.current(record);
       }
     };
 
     root.addEventListener("click", handleClick);
-    return () => root.removeEventListener("click", handleClick);
-  }, [onVisitedClick]);
+    applyStyles();
+
+    return () => {
+      root.removeEventListener("click", handleClick);
+    };
+  }, [svgContent, applyStyles]);
+
+  useLayoutEffect(() => {
+    if (svgMounted.current) {
+      applyStyles();
+    }
+  }, [states, applyStyles]);
 
   return (
     <div
       ref={containerRef}
       className="mx-auto w-full max-w-6xl [&_svg]:h-auto [&_svg]:w-full"
-      dangerouslySetInnerHTML={{ __html: svgContent }}
+      aria-label="Map of US states visited"
     />
   );
 }
