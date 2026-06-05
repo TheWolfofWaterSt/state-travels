@@ -15,6 +15,16 @@ import { getStoredAdminToken } from "@/lib/auth-client";
 import type { StateRecord } from "@/lib/states-data";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+type VisitedFilter = "all" | "visited" | "not-visited";
+
+function matchesSearch(state: AdminStateDraft, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    state.state_name.toLowerCase().includes(q) ||
+    state.state_code.toLowerCase().includes(q)
+  );
+}
 
 async function fetchStatesFromApi(): Promise<StateRecord[]> {
   const res = await fetch("/api/states", { cache: "no-store" });
@@ -72,7 +82,18 @@ export default function AdminClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [visitedFilter, setVisitedFilter] = useState<VisitedFilter>("all");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const filteredDraft = useMemo(() => {
+    if (!draft) return [];
+    return draft.filter((state) => {
+      if (visitedFilter === "visited" && !state.visited) return false;
+      if (visitedFilter === "not-visited" && state.visited) return false;
+      return matchesSearch(state, searchQuery);
+    });
+  }, [draft, searchQuery, visitedFilter]);
 
   const dirtyStates = useMemo(() => {
     if (!draft || !saved) return [];
@@ -228,10 +249,58 @@ export default function AdminClient() {
             )}
           </p>
         )}
+
+        <div className="mt-4 space-y-3">
+          <label className="block">
+            <span className="sr-only">Search states</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or code (e.g. Wisconsin, WI)"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              className="inline-flex rounded-md border border-gray-300 bg-gray-50 p-0.5"
+              role="group"
+              aria-label="Filter by visited status"
+            >
+              {(
+                [
+                  ["all", "All"],
+                  ["visited", "Visited"],
+                  ["not-visited", "Not visited"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setVisitedFilter(value)}
+                  className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                    visitedFilter === value
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  aria-pressed={visitedFilter === value}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-sm text-gray-500">
+              Showing {filteredDraft.length} of {draft.length} states
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="px-4 py-6 sm:px-6">
-        <AdminClientRows states={draft} onStateChange={handleStateChange} />
+        <AdminClientRows
+          states={filteredDraft}
+          onStateChange={handleStateChange}
+        />
       </div>
     </main>
   );
