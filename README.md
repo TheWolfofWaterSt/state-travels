@@ -22,7 +22,7 @@ A personal travel map portfolio built with Next.js 14 (App Router), Neon Postgre
 1. Create a project at [neon.tech](https://neon.tech) and copy the connection string.
 2. In Vercel project settings, set `NEON_DATABASE_URL`, `ADMIN_PASSWORD`, and `NEXTAUTH_SECRET`.
 3. Deploy with `vercel --prod` or connect the GitHub repo for auto-deploy.
-4. After first deploy, visit the site once (auto-seed) or `POST /api/seed` to populate all 50 states.
+4. After first deploy, visit the site once (auto-seed) or `POST /api/seed` to populate all 50 states plus Washington, D.C.
 5. Log in at `/login` to edit visited states, cities, and places at `/admin`.
 
 ## Data shape

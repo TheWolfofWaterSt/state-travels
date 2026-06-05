@@ -20,10 +20,21 @@ type VisitedFilter = "all" | "visited" | "not-visited";
 function matchesSearch(state: AdminStateDraft, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return (
+  if (
     state.state_name.toLowerCase().includes(q) ||
     state.state_code.toLowerCase().includes(q)
-  );
+  ) {
+    return true;
+  }
+  if (state.state_code === "DC") {
+    return (
+      q.includes("district") ||
+      q.includes("d.c") ||
+      q.includes("d c") ||
+      q === "dc"
+    );
+  }
+  return false;
 }
 
 async function fetchStatesFromApi(): Promise<StateRecord[]> {
