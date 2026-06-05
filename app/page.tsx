@@ -22,10 +22,6 @@ export default async function HomePage() {
   return (
     <main className="flex min-h-[calc(100vh-4rem)] flex-col">
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-8">
-        <p className="mb-6 max-w-xl text-center text-gray-600">
-          Blue states are places I&apos;ve been. Click a visited state to see
-          where I went.
-        </p>
         <MapSection svgContent={svgContent} />
       </div>
     </main>

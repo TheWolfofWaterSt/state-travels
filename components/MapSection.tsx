@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import UsMap from "@/components/UsMap";
 import StateModal from "@/components/StateModal";
+import TravelStats from "@/components/TravelStats";
 import type { StateRecord } from "@/lib/states-data";
 
 type MapSectionProps = {
@@ -33,11 +34,14 @@ export default function MapSection({ svgContent }: MapSectionProps) {
       {loading ? (
         <p className="text-center text-gray-500">Loading map…</p>
       ) : (
-        <UsMap
-          svgContent={svgContent}
-          states={states}
-          onVisitedClick={handleVisitedClick}
-        />
+        <>
+          <TravelStats states={states} />
+          <UsMap
+            svgContent={svgContent}
+            states={states}
+            onVisitedClick={handleVisitedClick}
+          />
+        </>
       )}
       {modal && (
         <StateModal
