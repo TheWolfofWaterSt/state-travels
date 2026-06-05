@@ -1,9 +1,11 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import UsMap from "@/components/UsMap";
 import StateModal from "@/components/StateModal";
 import TravelStats from "@/components/TravelStats";
+import { fetchStatesFromApi } from "@/lib/states-api-client";
 import type { StateRecord } from "@/lib/states-data";
 
 type MapSectionProps = {
@@ -11,19 +13,34 @@ type MapSectionProps = {
 };
 
 export default function MapSection({ svgContent }: MapSectionProps) {
+  const pathname = usePathname();
   const [states, setStates] = useState<StateRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<StateRecord | null>(null);
 
-  useEffect(() => {
-    fetch("/api/states", { cache: "no-store" })
-      .then((res) => res.json())
-      .then((data: StateRecord[]) => {
-        setStates(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+  const loadStates = useCallback(() => {
+    setLoading(true);
+    return fetchStatesFromApi()
+      .then((data) => setStates(data))
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (pathname !== "/") return;
+    loadStates();
+  }, [pathname, loadStates]);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible" && pathname === "/") {
+        loadStates();
+      }
+    };
+
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => document.removeEventListener("visibilitychange", refreshIfVisible);
+  }, [pathname, loadStates]);
 
   const handleVisitedClick = useCallback((state: StateRecord) => {
     setModal(state);

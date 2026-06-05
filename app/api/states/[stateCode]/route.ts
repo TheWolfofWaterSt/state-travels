@@ -1,7 +1,11 @@
+import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/auth";
 import type { CityRecord } from "@/lib/states-data";
 import { updateState } from "@/lib/states-repository";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function isValidCities(value: unknown): value is CityRecord[] {
   if (!Array.isArray(value)) return false;
@@ -56,7 +60,13 @@ export async function PATCH(
       return NextResponse.json({ error: "State not found" }, { status: 404 });
     }
 
-    return NextResponse.json(updated);
+    revalidatePath("/api/states");
+    revalidatePath("/");
+    revalidatePath("/admin");
+
+    return NextResponse.json(updated, {
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     console.error("PATCH /api/states:", error);
     return NextResponse.json(

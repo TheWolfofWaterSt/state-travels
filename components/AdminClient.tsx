@@ -12,6 +12,7 @@ import {
   type AdminStateDraft,
 } from "@/lib/admin-state";
 import { getStoredAdminToken } from "@/lib/auth-client";
+import { fetchStatesFromApi } from "@/lib/states-api-client";
 import type { StateRecord } from "@/lib/states-data";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -35,12 +36,6 @@ function matchesSearch(state: AdminStateDraft, query: string): boolean {
     );
   }
   return false;
-}
-
-async function fetchStatesFromApi(): Promise<StateRecord[]> {
-  const res = await fetch("/api/states", { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to load states");
-  return res.json() as Promise<StateRecord[]>;
 }
 
 async function patchState(
@@ -105,6 +100,16 @@ export default function AdminClient() {
       return matchesSearch(state, searchQuery);
     });
   }, [draft, searchQuery, visitedFilter]);
+
+  const listSummary = useMemo(() => {
+    const isState = (state: AdminStateDraft) => state.state_code !== "DC";
+    const totalStates = draft?.filter(isState).length ?? 0;
+    const shownStates = filteredDraft.filter(isState).length;
+    const includesDc = filteredDraft.some((state) => state.state_code === "DC");
+    const dcSuffix = includesDc ? ", plus D.C." : "";
+
+    return `Showing ${shownStates} of ${totalStates} states${dcSuffix}`;
+  }, [draft, filteredDraft]);
 
   const dirtyStates = useMemo(() => {
     if (!draft || !saved) return [];
@@ -189,6 +194,7 @@ export default function AdminClient() {
     try {
       const fresh = await fetchStatesFromApi();
       applyFreshStates(fresh);
+      router.refresh();
       setStatus("saved");
       clearStatusSoon();
     } catch {
@@ -300,9 +306,7 @@ export default function AdminClient() {
                 </button>
               ))}
             </div>
-            <p className="text-sm text-gray-500">
-              Showing {filteredDraft.length} of {draft.length} states
-            </p>
+            <p className="text-sm text-gray-500">{listSummary}</p>
           </div>
         </div>
       </div>
