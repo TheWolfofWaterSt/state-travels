@@ -53,6 +53,9 @@ async function patchState(
     },
     body: JSON.stringify({
       visited: state.visited,
+      activities: state.activities
+        .map((activity) => activity.trim())
+        .filter(Boolean),
       cities: state.cities
         .map((city) => ({
           name: city.name.trim(),
@@ -233,7 +236,7 @@ export default function AdminClient() {
       <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">
-            Admin — States, Cities & Places
+            Admin — States, Cities, Places & Activities
           </h1>
           <div className="flex flex-wrap items-center gap-3">
             <button

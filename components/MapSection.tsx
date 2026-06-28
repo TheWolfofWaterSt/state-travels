@@ -63,6 +63,7 @@ export default function MapSection({ svgContent }: MapSectionProps) {
       {modal && (
         <StateModal
           stateName={modal.state_name}
+          activities={modal.activities}
           cities={modal.cities}
           onClose={() => setModal(null)}
         />

@@ -61,10 +61,12 @@ export type StateRecord = {
   state_code: string;
   state_name: string;
   visited: boolean;
+  activities: string[];
   cities: CityRecord[];
 };
 
 export type StateUpdatePayload = {
   visited?: boolean;
+  activities?: string[];
   cities?: CityRecord[];
 };

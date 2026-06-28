@@ -9,6 +9,7 @@ export type AdminStateDraft = {
   state_code: string;
   state_name: string;
   visited: boolean;
+  activitiesText: string;
   cities: AdminCityDraft[];
 };
 
@@ -29,6 +30,7 @@ export function stateRecordToAdminDraft(state: StateRecord): AdminStateDraft {
     state_code: state.state_code,
     state_name: state.state_name,
     visited: state.visited,
+    activitiesText: placesToText(state.activities),
     cities: state.cities.map((city) => ({
       name: city.name,
       placesText: placesToText(city.places),
@@ -41,6 +43,7 @@ export function adminDraftToStateRecord(draft: AdminStateDraft): StateRecord {
     state_code: draft.state_code,
     state_name: draft.state_name,
     visited: draft.visited,
+    activities: parsePlacesText(draft.activitiesText),
     cities: draft.cities.map((city) => ({
       name: city.name,
       places: parsePlacesText(city.placesText),
@@ -62,6 +65,7 @@ export function adminDraftsEqual(
   b: AdminStateDraft
 ): boolean {
   if (a.visited !== b.visited) return false;
+  if (a.activitiesText !== b.activitiesText) return false;
   if (a.cities.length !== b.cities.length) return false;
   return a.cities.every(
     (city, i) =>

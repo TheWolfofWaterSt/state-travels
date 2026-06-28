@@ -7,6 +7,13 @@ import { updateState } from "@/lib/states-repository";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function isValidActivities(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((activity) => typeof activity === "string")
+  );
+}
+
 function isValidCities(value: unknown): value is CityRecord[] {
   if (!Array.isArray(value)) return false;
   return value.every(
@@ -32,7 +39,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid state code" }, { status: 400 });
   }
 
-  let body: { visited?: boolean; cities?: unknown };
+  let body: { visited?: boolean; activities?: unknown; cities?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -40,10 +47,18 @@ export async function PATCH(
   }
 
   const hasVisited = typeof body.visited === "boolean";
+  const hasActivities = body.activities !== undefined;
   const hasCities = body.cities !== undefined;
 
-  if (!hasVisited && !hasCities) {
+  if (!hasVisited && !hasActivities && !hasCities) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+  }
+
+  if (hasActivities && !isValidActivities(body.activities)) {
+    return NextResponse.json(
+      { error: "Invalid activities payload" },
+      { status: 400 }
+    );
   }
 
   if (hasCities && !isValidCities(body.cities)) {
@@ -53,6 +68,7 @@ export async function PATCH(
   try {
     const updated = await updateState(stateCode, {
       visited: hasVisited ? body.visited : undefined,
+      activities: hasActivities ? (body.activities as string[]) : undefined,
       cities: hasCities ? (body.cities as CityRecord[]) : undefined,
     });
 

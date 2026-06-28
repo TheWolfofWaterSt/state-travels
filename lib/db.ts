@@ -41,7 +41,20 @@ export async function ensureCitiesTables() {
   `;
 }
 
+export async function ensureStateActivitiesTable() {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS state_activities (
+      id SERIAL PRIMARY KEY,
+      state_id INTEGER NOT NULL REFERENCES states(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `;
+}
+
 export async function ensureSchema() {
   await ensureStatesTable();
   await ensureCitiesTables();
+  await ensureStateActivitiesTable();
 }

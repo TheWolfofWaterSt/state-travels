@@ -36,6 +36,21 @@ export default function StateAdminRow({ state, onChange }: StateAdminRowProps) {
         </label>
       </div>
 
+      <div className="space-y-2">
+        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+          Activities (comma-separated)
+        </label>
+        <input
+          type="text"
+          value={state.activitiesText}
+          onChange={(e) =>
+            onChange({ ...state, activitiesText: e.target.value })
+          }
+          placeholder="e.g. Drove through, Yellowstone National Park"
+          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+
       <div className="space-y-3">
         <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
           Cities & places

@@ -36,6 +36,10 @@ function normalizeCities(cities: CityRecord[]): CityRecord[] {
     .filter((city) => city.name.length > 0);
 }
 
+function normalizeActivities(activities: string[]): string[] {
+  return activities.map((a) => a.trim()).filter(Boolean);
+}
+
 function buildStateRecordsFromJoin(rows: JoinRow[]): StateRecord[] {
   const byCode = new Map<
     string,
@@ -76,6 +80,7 @@ function buildStateRecordsFromJoin(rows: JoinRow[]): StateRecord[] {
       state_code,
       state_name: state.state_name,
       visited: state.visited,
+      activities: [] as string[],
       cities: Array.from(state.cities.entries())
         .sort((a, b) => a[1].sort - b[1].sort)
         .map(([name, city]) => ({
@@ -85,6 +90,40 @@ function buildStateRecordsFromJoin(rows: JoinRow[]): StateRecord[] {
             .map(([placeName]) => placeName),
         })),
     }));
+}
+
+type ActivityRow = {
+  state_code: string;
+  activity_name: string | null;
+  activity_sort: number | null;
+};
+
+function attachActivitiesToStates(
+  states: StateRecord[],
+  activityRows: ActivityRow[]
+): StateRecord[] {
+  const byCode = new Map<string, Map<string, number>>();
+
+  for (const row of activityRows) {
+    if (!row.activity_name) continue;
+    let activities = byCode.get(row.state_code);
+    if (!activities) {
+      activities = new Map();
+      byCode.set(row.state_code, activities);
+    }
+    activities.set(row.activity_name, row.activity_sort ?? 0);
+  }
+
+  return states.map((state) => {
+    const activities = byCode.get(state.state_code);
+    if (!activities) return state;
+    return {
+      ...state,
+      activities: Array.from(activities.entries())
+        .sort((a, b) => a[1] - b[1])
+        .map(([name]) => name),
+    };
+  });
 }
 
 export async function migrateLegacyPlacesIfNeeded() {
@@ -132,7 +171,17 @@ export async function fetchAllStates(): Promise<StateRecord[]> {
     ORDER BY s.state_name ASC, c.sort_order ASC, c.id ASC, cp.sort_order ASC, cp.id ASC
   `) as JoinRow[];
 
-  return buildStateRecordsFromJoin(rows);
+  const activityRows = (await sql`
+    SELECT
+      s.state_code,
+      sa.name AS activity_name,
+      sa.sort_order AS activity_sort
+    FROM states s
+    LEFT JOIN state_activities sa ON sa.state_id = s.id
+    ORDER BY s.state_name ASC, sa.sort_order ASC, sa.id ASC
+  `) as ActivityRow[];
+
+  return attachActivitiesToStates(buildStateRecordsFromJoin(rows), activityRows);
 }
 
 async function replaceStateCities(stateId: number, cities: CityRecord[]) {
@@ -162,6 +211,20 @@ async function replaceStateCities(stateId: number, cities: CityRecord[]) {
   }
 }
 
+async function replaceStateActivities(stateId: number, activities: string[]) {
+  const sql = getSql();
+  const normalized = normalizeActivities(activities);
+
+  await sql`DELETE FROM state_activities WHERE state_id = ${stateId}`;
+
+  for (let i = 0; i < normalized.length; i++) {
+    await sql`
+      INSERT INTO state_activities (state_id, name, sort_order)
+      VALUES (${stateId}, ${normalized[i]}, ${i})
+    `;
+  }
+}
+
 export async function updateState(
   stateCode: string,
   payload: StateUpdatePayload
@@ -171,8 +234,9 @@ export async function updateState(
   const sql = getSql();
   const hasVisited = typeof payload.visited === "boolean";
   const hasCities = Array.isArray(payload.cities);
+  const hasActivities = Array.isArray(payload.activities);
 
-  if (!hasVisited && !hasCities) {
+  if (!hasVisited && !hasCities && !hasActivities) {
     return null;
   }
 
@@ -192,6 +256,10 @@ export async function updateState(
 
   if (hasCities) {
     await replaceStateCities(stateId, payload.cities!);
+  }
+
+  if (hasActivities) {
+    await replaceStateActivities(stateId, payload.activities!);
   }
 
   const all = await fetchAllStates();
